@@ -13,9 +13,14 @@ struct global_mem_dev {
 };
 struct global_mem_dev *global_mem_devp;
 
+static const struct file_operations global_mem_fops = {
+    .owner = THIS_MODULE,
+};
+
 static int __init global_mem_init(void)
 {
     int ret;
+    int err;
     int major;
     int minor;
 
@@ -34,6 +39,13 @@ static int __init global_mem_init(void)
         ret = -ENOMEM;
         goto fail_malloc;
     }
+
+    /* init chrdev and add the chrdev to the kernel */
+    cdev_init(&(global_mem_devp->cdev), &global_mem_fops);
+    err = cdev_add(&(global_mem_devp->cdev), dev_no, 1);
+    if (err)
+        printk(KERN_NOTICE "Error %d adding globalmem device\n", err);
+
     printk(KERN_INFO "global_mem init success.\n");
     return 0;
 
