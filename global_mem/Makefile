@@ -1,4 +1,4 @@
-obj-m += global_mem.o
+obj-m += globalmem.o
 
 all:
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
