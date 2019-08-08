@@ -4,6 +4,7 @@
 #include <linux/uaccess.h>      /* for copy_from(to)_user */
 
 #define GLOBAL_MEM_SIZE 4096
+#define MEM_CLEAR 0x01
 
 dev_t dev_no;
 
@@ -77,12 +78,29 @@ static ssize_t global_mem_write(struct file *filp, const char __user *buf, size_
     return ret;
 }
 
+static long global_mem_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+{
+    struct global_mem_dev *dev = filp->private_data;
+    switch (cmd) {
+    case MEM_CLEAR:
+        memset(dev->mem, 0, GLOBAL_MEM_SIZE);
+        printk(KERN_INFO "globalmem is set to zero\n");
+        break;
+
+    default:
+        return -EINVAL;
+    }
+
+    return 0;
+}
+
 static const struct file_operations global_mem_fops = {
     .owner = THIS_MODULE,
     .open = global_mem_open,
     .read = global_mem_read,
     .write = global_mem_write,
     .release = global_mem_release,
+    .unlocked_ioctl = global_mem_ioctl,
 };
 
 static int __init global_mem_init(void)
