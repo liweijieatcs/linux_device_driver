@@ -9,6 +9,9 @@
 
 dev_t dev_no;
 
+static struct class *globalmem_class[DEVICE_NUM];
+static char *chr_dev_name[20] = {"g_m_0", "g_m_1"}; /* This must match the DEVICE_NUM */
+
 /* define the global mem device and the pointer to the device */
 struct global_mem_dev {
     struct cdev cdev;
@@ -139,6 +142,16 @@ static int __init global_mem_init(void)
             printk(KERN_NOTICE "Error %d adding globalmem device\n", err);
     }
 
+    /* create class and create device attach it*/
+    globalmem_class[0] =class_create(THIS_MODULE, "global_mem");
+    if (IS_ERR(globalmem_class[0])) {
+        printk(KERN_INFO "creat globalmem_class failed!\n");
+        return -1;
+    }
+    for (i = 0; i < DEVICE_NUM; i++) {
+        device_create(globalmem_class[0], NULL, MKDEV(MAJOR(dev_no), i), NULL, *(chr_dev_name + i));
+        printk(KERN_INFO "chr dev %s created!\n", *(chr_dev_name + i));
+    }
     printk(KERN_INFO "global_mem init success.\n");
     return 0;
 
@@ -150,10 +163,16 @@ fail_malloc:
 static void __exit global_mem_exit(void)
 {
     int i;
+
     for (i = 0; i < DEVICE_NUM; i++)
         cdev_del(&(global_mem_devp + i)->cdev);
     kfree(global_mem_devp);
     unregister_chrdev_region(dev_no, DEVICE_NUM);
+
+    for (i = 0; i < DEVICE_NUM; i++)
+        device_destroy(globalmem_class[0], MKDEV(MAJOR(dev_no), i));
+
+    class_destroy(globalmem_class[0]);
     printk(KERN_INFO "global_mem exit success.\n");
     return;
 }
