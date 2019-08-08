@@ -56,6 +56,8 @@ fail_malloc:
 
 static void __exit global_mem_exit(void)
 {
+    cdev_del(&global_mem_devp->cdev);
+    kfree(global_mem_devp);
     unregister_chrdev_region(dev_no, 1);
     printk(KERN_INFO "global_mem exit success.\n");
     return;

@@ -1,0 +1,89 @@
+diff --git a/global_mem/globalmem.c b/global_mem/globalmem.c
+old mode 100644
+new mode 100755
+index 7377758..aea2678
+--- a/global_mem/globalmem.c
++++ b/global_mem/globalmem.c
+@@ -1,6 +1,7 @@
+ #include <linux/module.h>
+ #include <linux/cdev.h>         /* for alloc_chrdev_region */
+ #include <linux/slab.h>         /* for kzlloc */
++#include <linux/uaccess.h>      /* for copy_from(to)_user */
+ 
+ #define GLOBAL_MEM_SIZE 4096
+ 
+@@ -13,8 +14,65 @@ struct global_mem_dev {
+ };
+ struct global_mem_dev *global_mem_devp;
+ 
++
++int global_mem_open(struct inode *inode, struct file *filp)
++{
++    filp->private_data = global_mem_devp;
++    return 0;
++}
++static ssize_t global_mem_read(struct file *filp, char __user *buf, size_t size, loff_t *ppos)
++{
++    unsigned long p =  *ppos;
++    unsigned int count = size;
++    int ret = 0;
++    struct global_mem_dev *dev = filp->private_data;
++
++    if (p >= GLOBAL_MEM_SIZE)
++        return 0;
++
++    if (count > GLOBAL_MEM_SIZE - p)
++        count = GLOBAL_MEM_SIZE - p;
++
++    if (copy_to_user(buf, (void *)(dev->mem + p), count)) {
++        ret = -EFAULT;
++    } else {
++        *ppos += count;
++        ret = count;
++        printk(KERN_INFO "read %u bytes(s) from %lu\n", count, p);
++    }
++
++    return ret;
++}
++
++static ssize_t global_mem_write(struct file *filp, const char __user *buf, size_t size, loff_t *ppos)
++{
++    unsigned long p =  *ppos;
++    unsigned int count = size;
++    int ret = 0;
++    struct global_mem_dev *dev = filp->private_data;
++
++    if (p >= GLOBAL_MEM_SIZE)
++        return 0;
++
++    if (count > GLOBAL_MEM_SIZE - p)
++        count = GLOBAL_MEM_SIZE - p;
++
++    if (copy_from_user(dev->mem + p, buf, count)) {
++        ret = -EFAULT;
++    } else {
++        *ppos += count;
++        ret = count;
++        printk(KERN_INFO "written %u bytes(s) from %lu\n", count, p);
++    }
++
++    return ret;
++}
++
+ static const struct file_operations global_mem_fops = {
+     .owner = THIS_MODULE,
++    .open = global_mem_open,
++    .read = global_mem_read,
++    .write = global_mem_write,
+ };
+ 
+ static int __init global_mem_init(void)
+@@ -56,6 +114,8 @@ fail_malloc:
+ 
+ static void __exit global_mem_exit(void)
+ {
++    cdev_del(&global_mem_devp->cdev);
++    kfree(global_mem_devp);
+     unregister_chrdev_region(dev_no, 1);
+     printk(KERN_INFO "global_mem exit success.\n");
+     return;
