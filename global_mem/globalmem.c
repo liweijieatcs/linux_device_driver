@@ -5,6 +5,7 @@
 
 #define GLOBAL_MEM_SIZE 4096
 #define MEM_CLEAR 0x01
+#define DEVICE_NUM 2
 
 dev_t dev_no;
 
@@ -21,7 +22,8 @@ int global_mem_open(struct inode *inode, struct file *filp)
     /* set the device pointer to the file private data
      * then we can manipulate the device via private data
      */
-    filp->private_data = global_mem_devp;
+    struct global_mem_dev *dev = container_of(inode->i_cdev, struct global_mem_dev, cdev);
+    filp->private_data = dev;
     return 0;
 }
 
@@ -109,9 +111,11 @@ static int __init global_mem_init(void)
     int err;
     int major;
     int minor;
+    int i;
+    struct global_mem_dev *global_mem_devp_tmp;
 
     /* alloc chrdev region */
-    ret = alloc_chrdev_region(&dev_no, 0, 1, "globalmem");
+    ret = alloc_chrdev_region(&dev_no, 0, DEVICE_NUM, "globalmem");
     if (ret < 0) {
         printk(KERN_INFO "fail to alloc chrdev region\n");
     }
@@ -120,31 +124,36 @@ static int __init global_mem_init(void)
     printk(KERN_INFO "chrdev major:%d, minor:%d\n", major, minor);
 
     /* alloc memory for the  device */
-    global_mem_devp = (struct global_mem_dev *)kzalloc(sizeof(struct global_mem_dev), GFP_KERNEL);
+    global_mem_devp = (struct global_mem_dev *)kzalloc(sizeof(struct global_mem_dev) * DEVICE_NUM, GFP_KERNEL);
     if (!global_mem_devp) {
         ret = -ENOMEM;
         goto fail_malloc;
     }
 
     /* init chrdev and add the chrdev to the kernel */
-    cdev_init(&(global_mem_devp->cdev), &global_mem_fops);
-    err = cdev_add(&(global_mem_devp->cdev), dev_no, 1);
-    if (err)
-        printk(KERN_NOTICE "Error %d adding globalmem device\n", err);
+    global_mem_devp_tmp = global_mem_devp;
+    for (i = 0; i < DEVICE_NUM; i++) {
+        cdev_init(&(global_mem_devp_tmp + i)->cdev, &global_mem_fops);
+        err = cdev_add(&(global_mem_devp_tmp + i)->cdev, MKDEV(MAJOR(dev_no), i), 1);
+        if (err)
+            printk(KERN_NOTICE "Error %d adding globalmem device\n", err);
+    }
 
     printk(KERN_INFO "global_mem init success.\n");
     return 0;
 
 fail_malloc:
-    unregister_chrdev_region(dev_no, 1);
+    unregister_chrdev_region(dev_no, DEVICE_NUM);
     return ret;
 }
 
 static void __exit global_mem_exit(void)
 {
-    cdev_del(&global_mem_devp->cdev);
+    int i;
+    for (i = 0; i < DEVICE_NUM; i++)
+        cdev_del(&(global_mem_devp + i)->cdev);
     kfree(global_mem_devp);
-    unregister_chrdev_region(dev_no, 1);
+    unregister_chrdev_region(dev_no, DEVICE_NUM);
     printk(KERN_INFO "global_mem exit success.\n");
     return;
 }
