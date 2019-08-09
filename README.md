@@ -10,3 +10,6 @@
 5. 在用户态验证驱动，mknod /dev/g_m_0 c 243, 0生成设备节点，通过echo "hell0" > /dev/g_m_0对设备进行写入操作，通过cat /dev/g_m_0 对设备进行读取操作，由于驱动程序是在内核空间运行，在内核空间和用户空间进行数据的交互需要用到内核提供的函数 copy_from(to)_user
 6. 修改驱动以支持N个设备(使用container_of来获取结构体指针)。
 7. 增加创建class和创建设备，在移除模块时，要销毁设备和总线
+
+### 第7章 字符设备 global_mem 的并发控制
+1. 增加并发访问global_mem，使用mutex_lock(), mutex_unlock
