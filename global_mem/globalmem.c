@@ -16,6 +16,7 @@ static char *chr_dev_name[20] = {"g_m_0", "g_m_1"}; /* This must match the DEVIC
 struct global_mem_dev {
     struct cdev cdev;
     unsigned char mem[GLOBAL_MEM_SIZE];
+    struct mutex mutex;
 };
 struct global_mem_dev *global_mem_devp;
 
@@ -48,6 +49,7 @@ static ssize_t global_mem_read(struct file *filp, char __user *buf, size_t size,
     if (count > GLOBAL_MEM_SIZE - p)
         count = GLOBAL_MEM_SIZE - p;
 
+    mutex_lock(&dev->mutex);
     if (copy_to_user(buf, (void *)(dev->mem + p), count)) {
         ret = -EFAULT;
     } else {
@@ -55,6 +57,7 @@ static ssize_t global_mem_read(struct file *filp, char __user *buf, size_t size,
         ret = count;
         printk(KERN_INFO "read %u bytes(s) from %lu\n", count, p);
     }
+    mutex_unlock(&dev->mutex);
 
     return ret;
 }
@@ -72,6 +75,7 @@ static ssize_t global_mem_write(struct file *filp, const char __user *buf, size_
     if (count > GLOBAL_MEM_SIZE - p)
         count = GLOBAL_MEM_SIZE - p;
 
+    mutex_lock(&dev->mutex);
     if (copy_from_user(dev->mem + p, buf, count)) {
         ret = -EFAULT;
     } else {
@@ -79,6 +83,7 @@ static ssize_t global_mem_write(struct file *filp, const char __user *buf, size_
         ret = count;
         printk(KERN_INFO "written %u bytes(s) from %lu\n", count, p);
     }
+    mutex_unlock(&dev->mutex);
 
     return ret;
 }
@@ -88,7 +93,9 @@ static long global_mem_ioctl(struct file *filp, unsigned int cmd, unsigned long 
     struct global_mem_dev *dev = filp->private_data;
     switch (cmd) {
     case MEM_CLEAR:
+        mutex_lock(&dev->mutex);
         memset(dev->mem, 0, GLOBAL_MEM_SIZE);
+        mutex_unlock(&dev->mutex);
         printk(KERN_INFO "globalmem is set to zero\n");
         break;
 
@@ -152,6 +159,10 @@ static int __init global_mem_init(void)
         device_create(globalmem_class[0], NULL, MKDEV(MAJOR(dev_no), i), NULL, *(chr_dev_name + i));
         printk(KERN_INFO "chr dev %s created!\n", *(chr_dev_name + i));
     }
+
+    /* init mutex */
+    mutex_init(&global_mem_devp->mutex);
+
     printk(KERN_INFO "global_mem init success.\n");
     return 0;
 
