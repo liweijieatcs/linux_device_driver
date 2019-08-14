@@ -13,3 +13,12 @@
 
 ### 第7章 字符设备 global_mem 的并发控制
 1. 增加并发访问global_mem，使用mutex_lock(), mutex_unlock
+---
+
+# 工程实践中用到的设备驱动
+## SPI驱动(master slave)
+## I2C驱动(master slave)
+## ethernet驱动（MAC和PHY相结合）
+### MAC驱动
+### PHY驱动
+## MMC
