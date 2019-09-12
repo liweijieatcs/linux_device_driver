@@ -21,11 +21,11 @@ struct global_mem_dev {
 
 struct global_mem_dev *global_mem_devp;
 
-dev_t devno; /* 为了在init和exit函数中使用，要用到全局变量 */
+dev_t devno; /* ???init?exit?????,??????? */
 
 int global_mem_open(struct inode *inode, struct file *filp)
 {
-	/* 在设备驱动中默认将设备指针挂接在文件的私有数据中，在后续只需要对文件的私有数据进行操作即可 */
+	/* ????????????????????????,???????????????????? */
 	//filp->private_data = global_mem_devp;
 	struct global_mem_dev *dev = container_of(inode->i_cdev, struct global_mem_dev, cdev);
 	filp->private_data = dev;
@@ -107,7 +107,7 @@ static loff_t global_mem_llseek(struct file * filp, loff_t offset, int orig)
 			break;
 		}
 
-		/* 表示文件从头开始seek */
+		/* ????????seek */
 		filp->f_pos = (unsigned int)offset; 
 		ret = filp->f_pos;
 		break;
@@ -123,7 +123,7 @@ static loff_t global_mem_llseek(struct file * filp, loff_t offset, int orig)
 			break;
 		}
 
-		/* 表示文件从当前位置开始seek */
+		/* ???????????seek */
 		filp->f_pos += offset;
 		ret = filp->f_pos;
 		break;
@@ -172,14 +172,14 @@ static int __init global_mem_init(void)
 	int i = 0;
 	struct global_mem_dev *global_mem_devp_tmp;
 
-	/* 向内核申请设备号,申请多个设备(DEVICE_NUM)，共用主设备号 */
+	/* ????????,??????(DEVICE_NUM),?????? */
 	ret = alloc_chrdev_region(&devno, 0 , DEVICE_NUM, "global_mem");
 	if (ret < 0) {
 		trace_printk(KERN_INFO "Fail to alloc chrdev region, ret:%d\n", ret);
 	}
 	printk(KERN_INFO "chrdev alloc success, major:%d, minor:%d\n", MAJOR(devno), MINOR(devno));
 
-	/* 把设备添加到内核 */
+	/* ???????? */
 	global_mem_devp = (struct global_mem_dev *)kzalloc(sizeof(struct global_mem_dev)* DEVICE_NUM, GFP_KERNEL);
 	if (!global_mem_devp) {
 		ret = -ENOMEM;
@@ -188,7 +188,7 @@ static int __init global_mem_init(void)
 
 	mutex_init(&global_mem_devp->mutex);
 
-	/* 将设备注册到内核 在c语言中->优先级高于&*/
+	/* ???????? ?c???->?????&*/
 	global_mem_devp_tmp = global_mem_devp;
 	for (i = 0; i < DEVICE_NUM; i++) {
 		cdev_init(&(global_mem_devp_tmp + i)->cdev, &global_mem_fops);
@@ -197,14 +197,14 @@ static int __init global_mem_init(void)
 			printk(KERN_INFO "ERR %d add globalmem device\n", ret);
 	}
 
-	/* 创建class */
+	/* ??class */
 	globalmem_class =class_create(THIS_MODULE, "global_mem_class");
 		if (IS_ERR(globalmem_class)) {
 			printk(KERN_INFO "creat globalmem_class failed!\n");
 			return -1;
 	}
 
-	/* 将设备挂在global_mem class 下 */
+	/* ?????global_mem class ? */
 	for (i = 0; i < DEVICE_NUM; i++) {
 		device_create(globalmem_class, NULL, MKDEV(MAJOR(devno), i), NULL, *(chr_dev_name + i));
 	}
