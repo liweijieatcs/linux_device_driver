@@ -186,11 +186,10 @@ static int __init global_mem_init(void)
 		goto fail_malloc;
 	}
 
-	mutex_init(&global_mem_devp->mutex);
-
 	/* 将设备注册到内核 在c语言中->优先级高于&*/
 	global_mem_devp_tmp = global_mem_devp;
 	for (i = 0; i < DEVICE_NUM; i++) {
+		mutex_init(&(global_mem_devp_tmp + i)->mutex);
 		cdev_init(&(global_mem_devp_tmp + i)->cdev, &global_mem_fops);
 		ret = cdev_add(&(global_mem_devp_tmp + i)->cdev, MKDEV(MAJOR(devno), i), 1);
 		if (ret)
