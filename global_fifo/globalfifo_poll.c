@@ -1,15 +1,13 @@
 #include <stdlib.h>		/* for fd_set */
 #include <stdio.h>		/* for printf */
 #include <fcntl.h>		/* for O_RDONLY | O_NONBLOCK */
-#include <sys/ioctl.h>	/* for ioctl */
+#include <sys/ioctl.h>		/* for ioctl */
 
 #define FIFO_CLEAR 0X1
-#define BUFFER_LEN 20
 
 void main(void) 
 {
-	int fd, num;
-	char fd_ch[BUFFER_LEN];
+	int fd;
 	fd_set rfds, wfds;
 
 	fd = open("/dev/global_mem_0", O_RDONLY | O_NONBLOCK);
