@@ -5,6 +5,7 @@
 #include <linux/wait.h>			/* for wait_queue_head_t */
 #include <linux/sched/signal.h>	/* for signal_pending */
 #include <linux/wait.h>			/* for wait_up_interrruptible */
+#include <linux/poll.h>			/* for poll_table */
 
 #define GLOBALMEM_SIZE 4096
 #define DEVICE_NUM 4
@@ -171,6 +172,30 @@ out2:
 	return ret;
 }
 
+static unsigned int global_mem_poll(struct file *filp, poll_table *wait)
+{
+	unsigned int mask =0;
+	struct global_mem_dev *dev = filp->private_data;
+
+	mutex_lock(&dev->mutex);
+
+	poll_wait(filp, &dev->r_wait, wait);
+	poll_wait(filp, &dev->w_wait, wait);
+
+	if (dev->current_len != 0) {
+		mask |= POLLIN | POLLRDNORM;
+	}
+
+	if (dev->current_len != GLOBALMEM_SIZE) {
+		mask |= POLLOUT | POLLWRNORM;
+	}
+
+	mutex_unlock(&dev->mutex);
+
+	return mask;
+}
+
+
 static loff_t global_mem_llseek(struct file * filp, loff_t offset, int orig)
 {
 	loff_t ret = 0;
@@ -242,6 +267,7 @@ struct file_operations global_mem_fops = {
 	.write = global_mem_write,
 	.unlocked_ioctl = global_mem_ioctl,
 	.llseek = global_mem_llseek,
+	.poll = global_mem_poll,
 };
 
 
