@@ -69,7 +69,8 @@ static ssize_t global_mem_read(struct file *filp, char __user *buf, size_t count
 		 */
 		printk("globelmem read before schedule.\n");
 		__set_current_state(TASK_INTERRUPTIBLE);
-		mutex_unlock(&dev->mutex);
+		/* 在把自己切换出去 时，要释放锁，以便读进程可以拿到 */
+		mutex_unlock(&dev->mutex); 
 		schedule();
 
 		/* 如果是因为被信号唤醒了，则返回ERESTARTSYS 将r_wait移除队列，
@@ -79,6 +80,11 @@ static ssize_t global_mem_read(struct file *filp, char __user *buf, size_t count
 			ret = -ERESTARTSYS;
 			goto out2;
 		}
+
+		/* 
+		 * 再次进入的时候，需要再次获得锁，这里对应的是unlock可能是schedule之前的
+		 * 也可能是最后返回时的锁	
+		 */
 		mutex_lock(&dev->mutex);
 	}
 
@@ -114,7 +120,7 @@ out2:
 
 static ssize_t global_mem_write(struct file *filp, const char __user *buf, size_t count, loff_t *ppos)
 {
-	int ret  = 0;
+	int ret = 0;
 	struct global_mem_dev *dev = filp->private_data;
 	DECLARE_WAITQUEUE(wait, current);	/* 定义等待队列wait */
 
