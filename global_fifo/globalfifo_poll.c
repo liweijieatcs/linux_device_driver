@@ -5,13 +5,15 @@
 
 #define FIFO_CLEAR 0X1
 
-void main(void) 
+void main(void)
 {
 	int fd;
-	fd_set rfds, wfds;
+	fd_set rfds, wfds;	/* 读写文件描述符集合 */
 
+	/* 以非阻塞方式打开设备文件 */
 	fd = open("/dev/global_mem_0", O_RDONLY | O_NONBLOCK);
 	if (fd != -1) {
+		/* fifo清零 */
 		if (ioctl(fd, FIFO_CLEAR, 0) < 0)
 			printf("ioctl comand failed.\n");
 
@@ -23,12 +25,12 @@ void main(void)
 
 			select(fd + 1, &rfds, &wfds, NULL, NULL);
 
-			/* 数据可读 */
+			/* 数据可获得 */
 			if (FD_ISSET(fd, &rfds)) {
 				printf("poll monitor: can be read.\n");
 			}
 
-			/* 数据可写 */
+			/* 数据可写入 */
 			if (FD_ISSET(fd, &wfds)) {
 				printf("poll monitor: can be writen.\n");
 			}
