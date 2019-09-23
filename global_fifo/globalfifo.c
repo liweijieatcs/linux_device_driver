@@ -22,11 +22,18 @@ struct global_mem_dev {
 	struct mutex mutex;
 	wait_queue_head_t r_wait;	/* 读等待队列 */
 	wait_queue_head_t w_wait;	/* 写等待队列 */
+	struct fasync_struct *async_queue;
 };
 
 struct global_mem_dev *global_mem_devp;
 
 dev_t devno; /* 为了在init和exit函数中使用，要用到全局变量 */
+
+static int global_mem_fasync(int fd, struct file *filp, int mode)
+{
+	struct global_mem_dev *dev = filp->private_data;
+	return fasync_helper(fd, filp, mode, &dev->async_queue);
+}
 
 int global_mem_open(struct inode *inode, struct file *filp)
 {
@@ -40,6 +47,8 @@ int global_mem_open(struct inode *inode, struct file *filp)
 
 int global_mem_release(struct inode *inode, struct file *filp)
 {
+	/* 将文件从异步通知列表中删除 */
+	global_mem_fasync(-1, filp, 0);
 	return 0;
 }
 
@@ -104,7 +113,7 @@ static ssize_t global_mem_read(struct file *filp, char __user *buf, size_t count
 
 		/* 读进程完成，唤醒可能阻塞的写进程 */
 		wake_up_interruptible(&dev->w_wait);
-		
+
 		ret = count;
 	}
 
@@ -160,6 +169,14 @@ static ssize_t global_mem_write(struct file *filp, const char __user *buf, size_
 
 		/* 写进程完成了，唤醒可能阻塞的读进程 */
 		wake_up_interruptible(&dev->r_wait);
+
+		/* 当设备被正确写入之后，它变得可读，释放SIGIO信号*/
+		if (dev->async_queue) {
+			printk(KERN_INFO "enter the async_queue write over\n");
+			kill_fasync(&dev->async_queue, SIGIO, POLL_IN);
+			printk(KERN_INFO "%s kill SIGIO\n", __func__);
+		}
+
 		ret = count;
 	}
 	
@@ -268,6 +285,7 @@ struct file_operations global_mem_fops = {
 	.unlocked_ioctl = global_mem_ioctl,
 	.llseek = global_mem_llseek,
 	.poll = global_mem_poll,
+	.fasync = global_mem_fasync,
 };
 
 
