@@ -6,6 +6,7 @@
 #include <linux/sched/signal.h>	/* for signal_pending */
 #include <linux/wait.h>			/* for wait_up_interrruptible */
 #include <linux/poll.h>			/* for poll_table */
+#include <linux/platform_device.h>	/* for platform_device */
 
 #define GLOBALMEM_SIZE 4096
 #define DEVICE_NUM 4
@@ -212,7 +213,6 @@ static unsigned int global_mem_poll(struct file *filp, poll_table *wait)
 	return mask;
 }
 
-
 static loff_t global_mem_llseek(struct file * filp, loff_t offset, int orig)
 {
 	loff_t ret = 0;
@@ -288,8 +288,7 @@ struct file_operations global_mem_fops = {
 	.fasync = global_mem_fasync,
 };
 
-
-static int __init global_mem_init(void)
+static int __init global_mem_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 	int i = 0;
@@ -341,7 +340,7 @@ fail_malloc:
 	return ret;
 }
 
-static void __exit global_mem_exit(void)
+static int __exit global_mem_remove(struct platform_device *pdev)
 {
 	int i = 0;
 	
@@ -357,10 +356,20 @@ static void __exit global_mem_exit(void)
 	class_destroy(globalmem_class);
 
 	printk(KERN_INFO "global_mem exit success.\n");
+
+	return 0;
 }
 
-module_init(global_mem_init);
-module_exit(global_mem_exit);
+static struct platform_driver global_mem_driver = {
+	.driver = {
+		.name = "globalfifo",
+		.owner = THIS_MODULE,
+	},
+	.probe = global_mem_probe,
+	.remove = global_mem_remove,
+};
+
+module_platform_driver(global_mem_driver);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("liweijie");
