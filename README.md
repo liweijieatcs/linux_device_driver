@@ -1,10 +1,6 @@
 # linux 设备驱动开发详解 调试记录
-## 参考书籍：
-- 《linux 设备驱动开发详解》 宋宝华编著
-- 《LDD3》 gh编著
 
-### 第17章 网络设备驱动
-1. 增加文件夹snull,实现sn0和sn1的互ping
+- 《linux 设备驱动开发详解》 宋宝华编著
 
 ### 第6章 字符设备 global_mem 驱动
 - 通过以下几个步骤来调试
@@ -19,6 +15,11 @@
 ### 第7章 字符设备 global_mem 的并发控制
 1. 增加并发访问global_mem，使用mutex_lock(), mutex_unlock
 ---
+## 参考书籍：
+- 《LDD3》 gh编著
+
+### 第17章 网络设备驱动
+1. 增加文件夹snull,实现sn0和sn1的互ping
 
 # 工程实践中用到的设备驱动
 ## SPI驱动(master slave)
