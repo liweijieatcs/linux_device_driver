@@ -21,6 +21,10 @@
 ### 第17章 网络设备驱动
 1. 增加文件夹snull,实现sn0和sn1的互ping
 
+## 参考书籍
+- 《Linux drivres development》 john madieu
+1. 增加container_of的分析
+
 # 工程实践中用到的设备驱动
 ## SPI驱动(master slave)
 ## I2C驱动(master slave)
