@@ -117,7 +117,8 @@ int **name_ptr = &(leo.name);
 ```
 由于用了错误的指针，会在编译阶段输出：
 ```c
-./include/linux/compiler.h:324:38: error: call to ‘__compiletime_assert_25’ declared with attribute error: pointer type mismatch in container_of()
+./include/linux/compiler.h:324:38: error: call to ‘__compiletime_assert_25’ 
+declared with attribute error: pointer type mismatch in container_of()
 ```
 接着继续展开((type *)(__mptr - offsetof(type, member))); 
 ```c
