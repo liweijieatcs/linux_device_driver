@@ -96,7 +96,7 @@ container_of宏位于<linux/kernel.h>中，所以用的时候，要加上这个�
 			 "pointer type mismatch in container_of()");	\
 	((type *)(__mptr - offsetof(type, member))); })
 ```
-慢慢来理解这个宏，这个宏由两部分组成，一个是**BUILD_BUG_ON_MSG**，还有就是首先就是((type *)(__mptr - offsetof(type, member)));<br>
+慢慢来理解这个宏，这个宏由两部分组成，一个是**BUILD_BUG_ON_MSG**，还有就是((type *)(__mptr - offsetof(type, member)));<br>
 先看**BUILD_BUG_ON_MSG**，编译告警输出消息。
 ```c
 /**
