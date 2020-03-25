@@ -1,16 +1,11 @@
 /*
- * snull.c --  the Simple Network Utility
+ * kernel container_of demo
  *
- * Copyright (C) 2020.3.25 liweijie<ee.liweijie@gmail.com>
+ * (C) 2020.03.26 liweijie<ee.liweijie@gmail.com>
  *
- * The source code in this file can be freely used, adapted,
- * and redistributed in source or binary form, so long as an
- * acknowledgment appears in derived source files.  The citation
- * should list that the code comes from the book "Linux Device
- * Drivers" by Alessandro Rubini and Jonathan Corbet, published
- * by O'Reilly & Associates.   No warranty is attached;
- * we cannot take responsibility for errors or fitness for use.
- *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  */
 
 #include <linux/module.h>
