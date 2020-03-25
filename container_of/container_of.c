@@ -1,3 +1,18 @@
+/*
+ * snull.c --  the Simple Network Utility
+ *
+ * Copyright (C) 2020.3.25 liweijie<ee.liweijie@gmail.com>
+ *
+ * The source code in this file can be freely used, adapted,
+ * and redistributed in source or binary form, so long as an
+ * acknowledgment appears in derived source files.  The citation
+ * should list that the code comes from the book "Linux Device
+ * Drivers" by Alessandro Rubini and Jonathan Corbet, published
+ * by O'Reilly & Associates.   No warranty is attached;
+ * we cannot take responsibility for errors or fitness for use.
+ *
+ */
+
 #include <linux/module.h>
 #include <linux/kernel.h>
 
@@ -7,7 +22,7 @@ struct person {
     char *name;
 };
 
-int container_of_init(void)
+int __init container_of_init(void)
 {
     struct person leo;
     struct person *leo_ptr;
@@ -33,9 +48,12 @@ int container_of_init(void)
     return 0;
 }
 
-void container_of_exit(void)
+void __exit container_of_exit(void)
 {
     return;
 }
 module_init(container_of_init);
 module_exit(container_of_exit);
+
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("liweijie<ee.liweijie@gmail.com>");
