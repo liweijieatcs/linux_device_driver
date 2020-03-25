@@ -17,7 +17,7 @@ struct person {
     char *name;
 };
 
-int __init container_of_init(void)
+static int __init container_of_init(void)
 {
     struct person leo;
     struct person *leo_ptr;
@@ -43,7 +43,7 @@ int __init container_of_init(void)
     return 0;
 }
 
-void __exit container_of_exit(void)
+static void __exit container_of_exit(void)
 {
     return;
 }
