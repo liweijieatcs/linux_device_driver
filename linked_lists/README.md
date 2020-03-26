@@ -249,7 +249,7 @@ list_for_each(position, &mylisthead)
 
 
 第2中方法：将上面两步骤合二为一
-list_for_each_entry(datastructptr, &mylinkedlist, mylist) {
+list_for_each_entry(datastructptr, &mylisthead, mylist) {
     printk(KERN_INFO "data:%d\n", datastructptr->data);
 }
 
