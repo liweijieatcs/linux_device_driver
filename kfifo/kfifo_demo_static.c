@@ -10,8 +10,18 @@
 
 #include <linux/module.h>
 #include <linux/kfifo.h>
+#include <linux/proc_fs.h>
 
-#define FIFO_SIZE 999999
+/* name of the proc entry */
+#define PROC_FIFO "bytestream-fifo"
+
+/* lock for procfs write access */
+static DEFINE_MUTEX(read_lock);
+
+/* lock for procfs write access */
+static DEFINE_MUTEX(write_lock);
+
+#define FIFO_SIZE 32
 static DECLARE_KFIFO(test, unsigned char, FIFO_SIZE);
 
 int test_func(void)
@@ -58,15 +68,53 @@ int test_func(void)
 	return 0;
 }
 
+static ssize_t fifo_read(struct file *file, char __user *buf,
+			size_t count, loff_t *ppos)
+{
+	int ret;
+	unsigned int copied;
+	if (mutex_lock_interruptible(&read_lock)) {
+		return -ERESTARTSYS;
+	}
+	ret = kfifo_to_user(&test, buf, count, &copied);
+	mutex_unlock(&read_lock);
+	return ret ? ret : copied;
+}
+
+static ssize_t fifo_write(struct file *file, const char __user *buf,
+			size_t count, loff_t *ppos)
+{
+	int ret;
+	unsigned int copied;
+
+	if (mutex_lock_interruptible(&write_lock)) {
+		return -ERESTARTSYS;
+	}
+	ret = kfifo_from_user(&test, buf, count, &copied);
+	mutex_unlock(&write_lock);
+	return ret ? ret : copied;
+}
+
+static const struct file_operations fifo_fops = {
+	.owner = THIS_MODULE,
+	.read = fifo_read,
+	.write = fifo_write,
+	.llseek = noop_llseek,
+};
+
 static int __init mod_init(void)
 {
 	INIT_KFIFO(test);
 	if (test_func() < 0)
 		return -EIO;
+	if (proc_create(PROC_FIFO, 0, NULL, &fifo_fops) == NULL) {
+		return -ENOMEM;
+	}
 	return 0;
 }
 static void __exit mod_exit(void)
 {
+	remove_proc_entry(PROC_FIFO, NULL);
 	return;
 }
 
