@@ -25,7 +25,7 @@
 - 《Linux drivres development》 john madieu
 1. 增加container_of的分析
 2. 增加linked_lists的分析
-3. add kfifo
+3. add kfifo static & dynamic method
 
 # 工程实践中用到的设备驱动
 ## SPI驱动(master slave)
