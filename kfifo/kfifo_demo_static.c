@@ -22,7 +22,12 @@ static DEFINE_MUTEX(read_lock);
 static DEFINE_MUTEX(write_lock);
 
 #define FIFO_SIZE 32
+#define DYNAMIC
+#ifdef DYNAMIC
+static struct kfifo test;
+#else
 static DECLARE_KFIFO(test, unsigned char, FIFO_SIZE);
+#endif
 
 int test_func(void)
 {
@@ -104,10 +109,21 @@ static const struct file_operations fifo_fops = {
 
 static int __init mod_init(void)
 {
+#ifdef DYNAMIC
+        int ret;
+
+        ret = kfifo_alloc(&test, FIFO_SIZE, GFP_KERNEL);
+        if (ret < 0) {
+                printk(KERN_INFO "error kfifo_alloc\n");
+                return ret;
+        }
+#else
 	INIT_KFIFO(test);
+#endif
 	if (test_func() < 0)
 		return -EIO;
 	if (proc_create(PROC_FIFO, 0, NULL, &fifo_fops) == NULL) {
+                kfifo_free(&test);
 		return -ENOMEM;
 	}
 	return 0;
@@ -115,6 +131,9 @@ static int __init mod_init(void)
 static void __exit mod_exit(void)
 {
 	remove_proc_entry(PROC_FIFO, NULL);
+#ifdef DYNAMIC
+        kfifo_free(&test);
+#endif
 	return;
 }
 
