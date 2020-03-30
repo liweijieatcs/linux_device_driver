@@ -123,7 +123,9 @@ static int __init mod_init(void)
 	if (test_func() < 0)
 		return -EIO;
 	if (proc_create(PROC_FIFO, 0, NULL, &fifo_fops) == NULL) {
+#ifdef DYNAMIC
                 kfifo_free(&test);
+#endif
 		return -ENOMEM;
 	}
 	return 0;
