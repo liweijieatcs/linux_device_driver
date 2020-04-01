@@ -99,3 +99,103 @@ is in your driver, which provides the definition of dma_addr_t.  This type can h
 
 <br>What about block I/O and networking buffers?  The block I/O and networking subsystems make sure that the buffers they use are valid for you to DMA from/to.<br>
 <br>块I / O和网络缓冲区呢？ 块I / O和网络子系统确保它们从DMA读取/写入使用的缓冲区有效。<br>
+
+## DMA addressing capabilities DMA的寻址能力？
+## =====================
+<br>By default, the kernel assumes that your device can address 32-bits of DMA addressing.  For a 64-bit capable device, this needs to be increased, and for a device with limitations, it needs to be decreased.<br>
+
+<br>默认情况下，内核假定您的设备可以寻址DMA的32位 寻址。对于支持64位的设备，此功能需要增加，对于 有局限性的设备，需要减少。<br>
+
+<br>Special note about PCI: PCI-X specification requires PCI-X devices to support 64-bit addressing (DAC) for all transactions.  And at least one platform (SGI SN2) requires 64-bit consistent allocations to operate correctly when the IO bus is in PCI-X mode.<br>
+<br>关于PCI的特别说明：PCI-X规范要求PCI-X设备支持64位寻址（DAC）。 当IO总线处于PCI-X模式时，至少有一个平台（SGI SN2）需要64位一致的分配才能正确运行。<br>
+<br>For correct operation, you must set the DMA mask to inform the kernel about your devices DMA addressing capabilities.
+<br>
+<br>为了正确操作，您必须设置DMA掩码以通知内核有关 您的设备的DMA寻址功能。<br>
+<br>This is performed via a call to dma_set_mask_and_coherent():<br>
+<br>这是通过调用dma_set_mask_and_coherent（）来执行的：<br>
+```c
+int dma_set_mask_and_coherent(struct device *dev, u64 mask);
+```
+<br>which will set the mask for both streaming and coherent APIs together.  If you have some special requirements, then the following two separate calls can be used instead:<br>
+<br>它将同时为流式API和相关API设置掩码。如果你 有一些特殊要求，那么可以进行以下两个单独的调用 改为使用：<br>
+<br>The setup for streaming mappings is performed via a call to dma_set_mask()::<br>
+<br>通过dma_set_mask进行流式映射<br>
+```c
+int dma_set_mask(struct device *dev, u64 mask);
+```
+<br>The setup for consistent allocations is performed via a call to dma_set_coherent_mask():<br>
+<br>通过dma_set_coherent_mask进行一致性映射<br>
+```c
+int dma_set_coherent_mask(struct device *dev, u64 mask);
+```
+<br>Here, dev is a pointer to the device struct of your device, and mask is a bit mask describing which bits of an address your device supports.  Often the device struct of your device is embedded in the bus-specific device struct of your device.  For example, &pdev->dev is a pointer to the device struct of a PCI device (pdev is a pointer to the PCI device struct of your device).<br>
+<br>这里，dev是指向您设备的设备结构的指针，而mask是描述您设备支持的地址的哪些位的位掩码。 设备的设备结构通常嵌入在设备的总线特定设备结构中。 例如，＆pdev-> dev是指向PCI设备的设备结构的指针（pdev是指向设备的PCI设备结构的指针）。<br>
+
+<br>These calls usually return zero to indicated your device can perform DMA properly on the machine given the address mask you provided, but they might return an error if the mask is too small to be supportable on the given system.  If it returns non-zero, your device cannot perform DMA properly on this platform, and attempting to do so will result in undefined behavior. You must not use DMA on this device unless the dma_set_mask family of functions has returned success.<br>
+<br>这些调用通常返回零，以表明您的设备可以在给定您提供的地址掩码的情况下在机器上正确执行DMA，但是如果掩码太小而无法在给定的系统上支持，它们可能会返回错误。 如果返回非零值，则您的设备将无法在此平台上正确执行DMA，并且尝试执行DMA将导致不确定的行为。 除非dma_set_mask系列功能返回成功，否则不得在此设备上使用DMA。<br>
+<br>This means that in the failure case, you have two options:<br>
+<br>这意味着在失败的情况下，您有两个选择：<br>
+1) Use some non-DMA mode for data transfer, if possible. 如果可能，请使用某些非DMA模式进行数据传输。
+2) Ignore this device and do not initialize it. 忽略此设备，不要初始化它。
+<br>It is recommended that your driver print a kernel KERN_WARNING message when setting the DMA mask fails.  In this manner, if a user of your driver reports that performance is bad or that the device is not even detected, you can ask them for the kernel messages to find out exactly why.<br>
+<br>当设置DMA掩码失败时，建议驱动程序打印内核KERN_WARNING消息。 通过这种方式，如果驱动程序的用户报告性能差或什至没有检测到设备，则可以要求他们提供内核消息以找出原因。<br>
+<br>The standard 64-bit addressing device would do something like this:<br>
+<br>标准的64位寻址设备将执行以下操作：<br>
+```c
+	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64))) {
+		dev_warn(dev, "mydev: No suitable DMA available\n");
+		goto ignore_this_device;
+	}
+```
+<br>If the device only supports 32-bit addressing for descriptors in the coherent allocations, but supports full 64-bits for streaming mappings it would look like this:<br>
+<br>如果设备仅支持一致性分配中的描述符的32位寻址，但支持完整的64位流映射，则它将如下所示：<br>
+```c
+	if (dma_set_mask(dev, DMA_BIT_MASK(64))) {
+		dev_warn(dev, "mydev: No suitable DMA available\n");
+		goto ignore_this_device;
+	}
+```
+<br>The coherent mask will always be able to set the same or a smaller mask as the streaming mask. However for the rare case that a device driver only uses consistent allocations, one would have to check the return value from dma_set_coherent_mask().
+<br>
+<br>相干一致性掩码始终和流式掩码一样，或者比流式掩码小。 但是，在极少数情况下，设备驱动程序仅使用一致的分配，则必须检查dma_set_coherent_mask（）的返回值。<br>
+<br>Finally, if your device can only drive the low 24-bits of address you might do something like:<br>
+<br>最后，如果您的设备只能驱动低24位地址，则可以执行以下操作：<br>
+```c
+	if (dma_set_mask(dev, DMA_BIT_MASK(24))) {
+		dev_warn(dev, "mydev: 24-bit DMA addressing not available\n");
+		goto ignore_this_device;
+	}
+```
+<br>When dma_set_mask() or dma_set_mask_and_coherent() is successful, and returns zero, the kernel saves away this mask you have provided. The kernel will use this information later when you make DMA mappings.<br>
+<br>当dma_set_mask（）或dma_set_mask_and_coherent（）成功并返回零时，内核将保存您提供的该掩码。 稍后进行DMA映射时，内核将使用此信息。<br>
+
+<br>There is a case which we are aware of at this time, which is worth mentioning in this documentation.  If your device supports multiple functions (for example a sound card provides playback and record functions) and the various different functions have _different_ DMA addressing limitations, you may wish to probe each mask and only provide the functionality which the machine can handle.  It is important that the last call to dma_set_mask() be for the most specific mask.<br>
+<br>目前，我们知道一个案例，在本文档中值得一提。 如果您的设备支持多种功能（例如，声卡提供播放和录音功能）并且各种不同的功能都具有不同的DMA寻址限制，则您可能希望探查每个掩码，而仅提供机器可以处理的功能。 重要的是，对dma_set_mask（）的最后一次调用应针对最特定的掩码<br>
+
+<br>Here is pseudo-code showing how this might be done:<br>
+<br>这是伪代码，显示了如何完成此操作：<br>
+```c
+	#define PLAYBACK_ADDRESS_BITS	DMA_BIT_MASK(32)
+	#define RECORD_ADDRESS_BITS	DMA_BIT_MASK(24)
+
+	struct my_sound_card *card;
+	struct device *dev;
+
+	...
+	if (!dma_set_mask(dev, PLAYBACK_ADDRESS_BITS)) {
+		card->playback_enabled = 1;
+	} else {
+		card->playback_enabled = 0;
+		dev_warn(dev, "%s: Playback disabled due to DMA limitations\n",
+		       card->name);
+	}
+	if (!dma_set_mask(dev, RECORD_ADDRESS_BITS)) {
+		card->record_enabled = 1;
+	} else {
+		card->record_enabled = 0;
+		dev_warn(dev, "%s: Record disabled due to DMA limitations\n",
+		       card->name);
+	}
+```
+<br>A sound card was used as an example here because this genre of PCI devices seems to be littered with ISA chips given a PCI front end, and thus retaining the 16MB DMA addressing limitations of ISA.<br>
+<br>此处以声卡为例，因为在给定PCI前端的情况下，这种类型的PCI设备似乎散布着ISA芯片，因此保留了ISA的16MB DMA寻址限制。<br>
