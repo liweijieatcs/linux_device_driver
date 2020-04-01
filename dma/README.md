@@ -77,4 +77,25 @@ DMA API中涉及多种地址， 了解差异很重要。<br>
 	#include <linux/dma-mapping.h>
 ```
 is in your driver, which provides the definition of dma_addr_t.  This type can hold any valid DMA address for the platform and should be used everywhere you hold a DMA address returned from the DMA mapping functions.<br>
-<br>首先，应该包含头文件<liux/dma-mapping.h>在你的驱动程序中，该驱动程序提供了dma_addr_t的定义。 此类型可以容纳该平台的任何有效DMA地址，并且应在拥有从DMA映射函数返回的DMA地址的任何地方使用。
+<br>首先，应该包含头文件<liux/dma-mapping.h>在你的驱动程序中，该驱动程序提供了dma_addr_t的定义。 此类型可以容纳该平台的任何有效DMA地址，并且应在拥有从DMA映射函数返回的DMA地址的任何地方使用。<br>
+
+## What memory is DMA'able? DMA可以使用什么内存？
+## =====================
+
+<br>The first piece of information you must know is what kernel memory can be used with the DMA mapping facilities.  There has been an unwritten set of rules regarding this, and this text is an attempt to finally write them down.<br>
+<br>您必须知道的第一条信息是DMA映射工具可以使用哪些内核内存。 与此相关的规则有一套未成文的规则，本文旨在最终将它们写下来。<br>
+
+<br>If you acquired your memory via the page allocator (i.e. __get_free_page*()) or the generic memory allocators (i.e. kmalloc() or kmem_cache_alloc()) then you may DMA to/from that memory using the addresses returned from those routines.<br>
+<br>如果您是通过页面分配器（即__get_free_page *（））或通用内存分配器（即kmalloc（）或kmem_cache_alloc（））获取内存的，则可以使用从这些例程返回的地址向该内存进行DMA访问。<br>
+
+<br>This means specifically that you may _not_ use the memory/addresses returned from vmalloc() for DMA.  It is possible to DMA to the _underlying_ memory mapped into a vmalloc() area, but this requires walking page tables to get the physical addresses, and then translating each of those pages back to a kernel address using something like __va().  [ EDIT: Update this when we integrate Gerd Knorr's generic code which does this. ]<br>
+<br>特别是这意味着您可能无法将vmalloc（）返回的内存/地址用于DMA。 可以将DMA映射到映射到vmalloc（）区域中的内存，但这需要遍历页表以获取物理地址，然后使用诸如va（）之类的东西将这些页面中的每一个转换回内核地址。 [编辑：当我们集成Gerd Knorr的通用代码来执行此操作时，请对此进行更新。 ]<br>
+
+<br>This rule also means that you may use neither kernel image addresses (items in data/text/bss segments), nor module image addresses, nor stack addresses for DMA.  These could all be mapped somewhere entirely different than the rest of physical memory.  Even if those classes of memory could physically work with DMA, you'd need to ensure the I/O buffers were cacheline-aligned.  Without that, you'd see cacheline sharing problems (data corruption) on CPUs with DMA-incoherent caches. (The CPU could write to one word, DMA would write to a different one in the same cache line, and one of them could be overwritten.)<br>
+<br>此规则还意味着您既不能使用内核映像地址（数据/文本/ bss段中的项），也不能使用模块映像地址，也不能使用DMA的堆栈地址。 这些都可以映射到与其余物理内存完全不同的地方。 即使这些内存类别在物理上可以与DMA配合使用，您也需要确保I/O缓冲区与缓存行对齐。 否则，您将在具有DMA不相关缓存的CPU上看到缓存行共享问题（数据损坏）。 （CPU可以写入一个字，DMA可以写入同一高速缓存行中的另一个字，并且其中一个可以被覆盖。）<br>
+
+<br>Also, this means that you cannot take the return of a kmap() call and DMA to/from that.  This is similar to vmalloc().<br>
+<br>同样，这意味着您无法对kmap()的地址进行DMA映射。 这类似于vmalloc（）。<br>
+
+<br>What about block I/O and networking buffers?  The block I/O and networking subsystems make sure that the buffers they use are valid for you to DMA from/to.<br>
+<br>块I / O和网络缓冲区呢？ 块I / O和网络子系统确保它们从DMA读取/写入使用的缓冲区有效。<br>
