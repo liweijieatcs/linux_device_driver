@@ -199,3 +199,65 @@ int dma_set_coherent_mask(struct device *dev, u64 mask);
 ```
 <br>A sound card was used as an example here because this genre of PCI devices seems to be littered with ISA chips given a PCI front end, and thus retaining the 16MB DMA addressing limitations of ISA.<br>
 <br>此处以声卡为例，因为在给定PCI前端的情况下，这种类型的PCI设备似乎散布着ISA芯片，因此保留了ISA的16MB DMA寻址限制。<br>
+
+## Types of DMA mappings
+## =====================
+<br>There are two types of DMA mappings:<br>
+<br>有两种类型的DMA映射<br>
+
+<br>Consistent DMA mappings which are usually mapped at driver initialization, unmapped at the end and for which the hardware should guarantee that the device and the CPU can access the data in parallel and will see updates made by each other without any explicit software flushing.<br>
+<br>一致的DMA映射通常在驱动程序初始化时进行映射，退出的时候取消映射，并且硬件应保证设备和CPU可以并行访问数据，并且可以看到彼此进行的更新，而无需任何显式的软件刷新。<br>
+
+<br>Think of "consistent" as "synchronous" or "coherent".<br>
+<br>将“一致”视为“同步”或“连贯”。<br>
+
+<br>The current default is to return consistent memory in the low 32 bits of the DMA space.  However, for future compatibility you should set the consistent mask even if this default is fine for your driver.<br>
+<br>当前的默认值是在DMA空间的低32位中返回一致的内存。 但是，为了将来的兼容性，即使此默认值适合您的驱动程序，也应设置一致的掩码。<br>
+
+<br>Good examples of what to use consistent mappings for are:<br>
+<br>关于使用一致映射的示例如下：<br>
+
+- Network card DMA ring descriptors.网卡DMA环描述符。
+- SCSI adapter mailbox command data structures.SCSI适配器邮箱命令数据结构。
+- Device firmware microcode executed out of main memory.设备固件微码从主存储器中执行。
+
+<br>The invariant these examples all require is that any CPU store to memory is immediately visible to the device, and vice versa.  Consistent mappings guarantee this.<br>
+<br>这些示例都要求不变的是，任何存储在内存中的CPU都对设备立即可见，反之亦然。 一致的映射可确保这一点。<br>
+
+  .. important:
+
+<br>Consistent DMA memory does not preclude the usage of proper memory barriers.  The CPU may reorder stores to consistent memory just as it may normal memory. <br>
+<br>一致性DMA内存并不排除使用适当的内存屏障。 CPU可能会将存储重新排序到一致的内存，就像它可能会正常存储一样。<br>
+<br>Example: <br>
+<br>if it is important for the device to see the first word of a descriptor updated before the second, you must do something like::<br>
+<br>如果让设备看到描述符的第一个word0在第二个word1之前更新很重要，则必须执行以下操作：<br>
+```c
+  desc->word0 = address;
+  wmb();
+  desc->word1 = DESC_VALID;
+```
+<br>in order to get correct behavior on all platforms.<br>
+<br>为了在所有平台上获得正确的行为。<br>
+
+<br>Also, on some platforms your driver may need to flush CPU write buffers in much the same way as it needs to flush write buffers found in PCI bridges (such as by reading a register's value after writing it).<br>
+<br>同样，在某些平台上，驱动程序可能需要刷新CPU写缓冲区的方式与刷新PCI桥中发现的写缓冲区的方式相同（例如，在写寄存器后读取寄存器的值）。<br>
+
+<br>Streaming DMA mappings which are usually mapped for one DMA transfer, unmapped right after it (unless you use dma_sync_* below) and for which hardware can optimize for sequential accesses.<br>
+<br>流式DMA通常映射为一个DMA传输，紧接其后是未映射的（除非您在下面使用dma_sync_ *），并且硬件可以针对顺序访问进行优化。<br>
+
+<br>Think of "streaming" as "asynchronous" or "outside the coherency domain".<br>
+<br>将“流”视为“异步”或“在一致性域之外”。<br>
+
+Good examples of what to use streaming mappings for are:
+<br>流映射用于什么的很好的例子是：<br>
+- Networking buffers transmitted/received by a device. 设备发送/接收的网络缓冲区。
+- Filesystem buffers written/read by a SCSI device.SCSI设备写入/读取的文件系统缓冲区。
+
+<br>The interfaces for using this type of mapping were designed in such a way that an implementation can make whatever performance optimizations the hardware allows.  To this end, when using such mappings you must be explicit about what you want to happen.<br>
+<br>设计使用这种类型的映射的接口，以便实现可以对硬件进行任何性能优化。 为此，在使用此类映射时，必须明确要发生的事情。<br>
+
+<br>Neither type of DMA mapping has alignment restrictions that come from the underlying bus, although some devices may have such restrictions. Also, systems with caches that aren't DMA-coherent will work better when the underlying buffers don't share cache lines with other data.<br>
+<br>两种类型的DMA映射都没有来自基础总线的对齐限制，尽管某些设备可能有这种限制。 同样，当基础缓冲区不与其他数据共享高速缓存行时，具有非DMA一致性高速缓存的系统会更好地工作。<br>
+
+## Using Consistent DMA mappings 使用一致性的DMA映射
+## ================================================
