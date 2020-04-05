@@ -261,62 +261,82 @@ Good examples of what to use streaming mappings for are:
 
 ## Using Consistent DMA mappings 使用一致性的DMA映射
 ## ================================================
-<br>To allocate and map large (PAGE_SIZE or so) consistent DMA regions, you should do::<br>
+<br>To allocate and map large (PAGE_SIZE or so) consistent DMA regions, you should do:<br>
+<br>申请并且映射大片的一致性DMA，你应该使用<br>
 ```c
 	dma_addr_t dma_handle;
 
 	cpu_addr = dma_alloc_coherent(dev, size, &dma_handle, gfp);
 ```
 <br>where device is a ``struct device *``. This may be called in interrupt context with the GFP_ATOMIC flag.<br>
+<br>其中device是``struct device *''。 这可以在带有GFP_ATOMIC标志的中断上下文中调用<br>
 
 <br>Size is the length of the region you want to allocate, in bytes.<br>
+<br>大小是您要分配的区域的长度，以字节为单位。<br>
 
 <br>This routine will allocate RAM for that region, so it acts similarly to __get_free_pages() (but takes size instead of a page order).  If your driver needs regions sized smaller than a page, you may prefer using the dma_pool interface, described below.<br>
+<br>该例程将为该区域分配RAM，因此其行为类似于__get_free_pages（）（但采用大小而不是页面ordre）。 如果驱动程序需要的区域大小小于页面，则可能更喜欢使用dma_pool接口，如下所述。<br>
 
 <br>The consistent DMA mapping interfaces, will by default return a DMA address which is 32-bit addressable.  Even if the device indicates (via the DMA mask) that it may address the upper 32-bits, consistent allocation will only return > 32-bit addresses for DMA if the consistent DMA mask has been explicitly changed via dma_set_coherent_mask().  This is true of the dma_pool interface as well.<br>
+<br>默认情况下，一致的DMA映射接口将返回32位可寻址的DMA地址。 即使设备指示（通过DMA掩码）它可以寻址高32位，但如果已通过dma_set_coherent_mask（）显式更改了一致的DMA掩码，则一致的分配将仅返回DMA的> 32位地址。 dma_pool接口也是如此。<br>
 
 <br>dma_alloc_coherent() returns two values: the virtual address which you can use to access it from the CPU and dma_handle which you pass to the card.<br>
+<br>dma_alloc_coherent（）返回两个值：可用于从CPU访问它的虚拟地址和传递给设备卡的dma_handle。<br>
 
 <br>The CPU virtual address and the DMA address are both guaranteed to be aligned to the smallest PAGE_SIZE order which is greater than or equal to the requested size.  This invariant exists (for example) to guarantee that if you allocate a chunk which is smaller than or equal to 64 kilobytes, the extent of the buffer you receive will not cross a 64K boundary.<br>
+<br>保证CPU虚拟地址和DMA地址都与最小PAGE_SIZE顺序对齐，该最小PAGE_SIZE order大于或等于请求的大小。 该不变量存在（例如）以保证，如果您分配的块小于或等于64 KB，则接收到的缓冲区范围将不会超过64K边界。<br>
 
 <br>To unmap and free such a DMA region, you call::<br>
+<br>要取消映射并释放此类DMA区域，需要调用：：<br>
 ```c
 	dma_free_coherent(dev, size, cpu_addr, dma_handle);
 ```
 <br>where dev, size are the same as in the above call and cpu_addr and dma_handle are the values dma_alloc_coherent() returned to you. This function may not be called in interrupt context.<br>
+<br>其中dev，size与上述调用中的相同，而cpu_addr和dma_handle是返回给您的dma_alloc_coherent（）值。 不得在中断上下文中调用此函数。<br>
 
 <br>If your driver needs lots of smaller memory regions, you can write custom code to subdivide pages returned by dma_alloc_coherent(), or you can use the dma_pool API to do that.  A dma_pool is like a kmem_cache, but it uses dma_alloc_coherent(), not __get_free_pages(). Also, it understands common hardware constraints for alignment, like queue heads needing to be aligned on N byte boundaries.<br>
+<br>如果驱动程序需要很多较小的内存区域，则可以编写自定义代码来细分dma_alloc_coherent（）返回的页面，或者可以使用dma_pool API来执行此操作。 dma_pool类似于kmem_cache，但是它使用dma_alloc_coherent（），而不是__get_free_pages（）。 而且，它了解对齐的常见硬件限制，例如队列头需要在N个字节边界上对齐。<br>
+
 
 <br>Create a dma_pool like this::<br>
+创建一个dma_pool，如下所示：
 ```c
 	struct dma_pool *pool;
 
 	pool = dma_pool_create(name, dev, size, align, boundary);
 ```
 <br>The "name" is for diagnostics (like a kmem_cache name); dev and size are as above.  The device's hardware alignment requirement for this type of data is "align" (which is expressed in bytes, and must be a power of two).  If your device has no boundary crossing restrictions, pass 0 for boundary; passing 4096 says memory allocated from this pool must not cross 4KByte boundaries (but at that time it may be better to use dma_alloc_coherent() directly instead).<br>
+<br>“name”用于诊断（例如kmem_cache名称）； dev和大小如上。 设备对此类数据的硬件对齐要求是“对齐”（以字节表示，必须为2的幂）。 如果您的设备没有边界限制，则传递0作为边界。 传递4096表示从该池分配的内存一定不能越过4KB边界（但是此时最好直接使用dma_alloc_coherent（）更好）。<br>
 
 <br>Allocate memory from a DMA pool like this::<br>
+<br>像这样从DMA池分配内存：<br>
 ```c
 	cpu_addr = dma_pool_alloc(pool, flags, &dma_handle);
 ```
 <br>flags are GFP_KERNEL if blocking is permitted (not in_interrupt nor holding SMP locks), GFP_ATOMIC otherwise.  Like dma_alloc_coherent(), this returns two values, cpu_addr and dma_handle.<br>
+<br>如果允许阻止（不允许in_interrupt或不持有SMP锁），则标志为GFP_KERNEL，否则为GFP_ATOMIC。 像dma_alloc_coherent（）一样，它返回两个值cpu_addr和dma_handle。<br>
 
 <br>Free memory that was allocated from a dma_pool like this::<br>
+<br>像这样从dma_pool分配的可用内存：<br>
 ```c
 	dma_pool_free(pool, cpu_addr, dma_handle);
 ```
 <br>where pool is what you passed to dma_pool_alloc(), and cpu_addr and dma_handle are the values dma_pool_alloc() returned. This function may be called in interrupt context.<br>
+<br>其中pool是您传递给dma_pool_alloc（）的内容，而cpu_addr和dma_handle是返回的dma_pool_alloc（）值。 可以在中断上下文中调用此函数。<br>
 
 <br>Destroy a dma_pool by calling::<br>
+<br>通过调用销毁dma_pool<br>
 ```c
 	dma_pool_destroy(pool);
 ```
 <br>Make sure you've called dma_pool_free() for all memory allocated from a pool before you destroy the pool. This function may not be called in interrupt context.<br>
+<br>在销毁池之前，请确保已为从池分配的所有内存调用dma_pool_free（）。 不得在中断上下文中调用此函数。<br>
 
-## DMA Direction
+## DMA Direction DMA的方向
 ## =============
 
 <br>The interfaces described in subsequent portions of this document take a DMA direction argument, which is an integer and takes on one of the following values::<br>
+<br>本文档后续部分中描述的接口采用DMA方向参数，该参数是整数，并具有以下值之一：<br>
 ```c
  DMA_BIDIRECTIONAL
  DMA_TO_DEVICE
@@ -324,29 +344,40 @@ Good examples of what to use streaming mappings for are:
  DMA_NONE
 ```
 <br>You should provide the exact DMA direction if you know it.<br>
+<br>如果知道，则应提供确切的DMA方向<br>
 
 <br>DMA_TO_DEVICE means "from main memory to the device" DMA_FROM_DEVICE means "from the device to main memory" It is the direction in which the data moves during the DMA transfer.<br>
+<br>DMA_TO_DEVICE表示“从主存储器到设备” DMA_FROM_DEVICE表示“从设备到主存储器”这是DMA传输期间数据移动的方向。<br>
 
 <br>You are _strongly_ encouraged to specify this as precisely as you possibly can.<br>
+<br>强烈建议您尽可能精确地指定此名称<br>
 
 <br>If you absolutely cannot know the direction of the DMA transfer, specify DMA_BIDIRECTIONAL.  It means that the DMA can go in either direction.  The platform guarantees that you may legally specify this, and that it will work, but this may be at the cost of performance for example.<br>
+<br>如果您完全不知道DMA传输的方向，请指定DMA_BIDIRECTIONAL。 这意味着DMA可以沿任一方向运行。 该平台保证您可以合法地指定它并且可以使用，但是这可能会降低性能。<br>
 
 <br>The value DMA_NONE is to be used for debugging.  One can hold this in a data structure before you come to know the precise direction, and this will help catch cases where your direction tracking logic has failed to set things up properly.<br>
+<br>值DMA_NONE将用于调试。 在您知道准确的方向之前，可以将其保存在数据结构中，这将有助于发现方向跟踪逻辑未能正确设置事物的情况<br>
 
 <br>Another advantage of specifying this value precisely (outside of potential platform-specific optimizations of such) is for debugging. Some platforms actually have a write permission boolean which DMA mappings can be marked with, much like page protections in the user program address space.  Such platforms can and do report errors in the kernel logs when the DMA controller hardware detects violation of the permission setting.<br>
+<br>精确指定此值的另一个好处（在此类特定平台的潜在优化之外）是用于调试。 某些平台实际上具有写许可权布尔值，可以用DMA映射标记该布尔值，就像用户程序地址空间中的页面保护一样。 当DMA控制器硬件检测到违反权限设置时，此类平台可以并且确实在内核日志中报告错误。<br>
 
 <br>Only streaming mappings specify a direction, consistent mappings implicitly have a direction attribute setting of DMA_BIDIRECTIONAL.<br>
+<br>只有流映射指定方向，一致映射隐式具有DMA_BIDIRECTIONAL的方向属性设置。<br>
 
-<br>The SCSI subsystem tells you the direction to use in the 'sc_data_direction' member of the SCSI command your driver is working on.<br>
+<br>The SCSI subsystem tells you the direction to use in the 'sc_data_direction' member of the <br>SCSI command your driver is working on.<br>
+SCSI子系统在驱动程序正在使用的SCSI命令的'sc_data_direction'成员中告诉您使用的方向。<br>
 
 <br>For Networking drivers, it's a rather simple affair.  For transmit packets, map/unmap them with the DMA_TO_DEVICE direction specifier.  For receive packets, just the opposite, map/unmap them with the DMA_FROM_DEVICE direction specifier.<br>
+<br>对于网络驱动程序，这是一件相当简单的事情。 对于发送数据包，请使用DMA_TO_DEVICE方向说明符映射/取消映射它们。 对于接收数据包，正好相反，请使用DMA_FROM_DEVICE方向说明符映射/取消映射它们<br>
 
 
-## Using Streaming DMA mappings
+## Using Streaming DMA mappings 使用流式DMA映射
 ## ============================
 <br>The streaming DMA mapping routines can be called from interrupt context.  There are two versions of each map/unmap, one which will map/unmap a single memory region, and one which will map/unmap a scatterlist.<br>
+<br>流式DMA映射例程可以从中断上下文中调用。 每个映射/取消映射有两种版本，一种将映射/取消映射单个内存区域，另一种将映射/取消映射散列表。<br>
 
 <br>To map a single region, you do::<br>
+<br>要映射单个区域，请执行以下操作：<br>
 ```c
 	struct device *dev = &my_dev->dev;
 	dma_addr_t dma_handle;
@@ -368,10 +399,14 @@ Good examples of what to use streaming mappings for are:
 	dma_unmap_single(dev, dma_handle, size, direction);
 ```
 <br>You should call dma_mapping_error() as dma_map_single() could fail and return error.  Doing so will ensure that the mapping code will work correctly on all DMA implementations without any dependency on the specifics of the underlying implementation. Using the returned address without checking for errors could result in failures ranging from panics to silent data corruption.  The same applies to dma_map_page() as well.<br>
+<br>您应该调用dma_mapping_error（），因为dma_map_single（）可能会失败并返回错误。 这样做将确保映射代码将在所有DMA实现上正常工作，而无需依赖底层实现的细节。 使用返回的地址而不检查错误可能导致失败，从panic到无声数据损坏。 dma_map_page（）也一样。<br>
 
 <br>You should call dma_unmap_single() when the DMA activity is finished, e.g., from the interrupt which told you that the DMA transfer is done.<br>
+<br>当DMA活动结束时，您应该调用dma_unmap_single（）例如从终端得知DMA传输结束了。<br>
 
 <br>Using CPU pointers like this for single mappings has a disadvantage: you cannot reference HIGHMEM memory in this way.  Thus, there is a map/unmap interface pair akin to dma_{map,unmap}_single().  These interfaces deal with page/offset pairs instead of CPU pointers.<br>
+<br>对单个映射使用这样的CPU指针有一个缺点：您不能以这种方式引用HIGHMEM内存。 因此，存在类似于dma_ {map，unmap} _single（）的map / unmap接口对。 这些接口处理页面/偏移对，而不是CPU指针。<br>
+
 <br>Specifically::<br>
 ```c
 	struct device *dev = &my_dev->dev;
@@ -395,10 +430,13 @@ Good examples of what to use streaming mappings for are:
 	dma_unmap_page(dev, dma_handle, size, direction);
 ```
 <br>Here, "offset" means byte offset within the given page.<br>
+<br>此处，“偏移量”是指给定页面内的字节偏移量<br>
 
 <br>You should call dma_mapping_error() as dma_map_page() could fail and return error as outlined under the dma_map_single() discussion.<br>
+<br>您应该调用dma_mapping_error（），因为dma_map_page（）可能会失败并返回dma_map_single（）讨论中概述的错误。<br>
 
 <br>You should call dma_unmap_page() when the DMA activity is finished, e.g., from the interrupt which told you that the DMA transfer is done.<br>
+<br>当DMA活动完成时，例如，从告诉您DMA传输已完成的中断中，您应该调用dma_unmap_page（）。<br>
 
 <br>With scatterlists, you map a region gathered from several regions by::<br>
 ```c
@@ -411,25 +449,33 @@ Good examples of what to use streaming mappings for are:
 	}
 ```
 <br>where nents is the number of entries in the sglist.<br>
+<br>其中nents是sglist中条目的数量。<br>
 
 <br>The implementation is free to merge several consecutive sglist entries into one (e.g. if DMA mapping is done with PAGE_SIZE granularity, any consecutive sglist entries can be merged into one provided the first one ends and the second one starts on a page boundary - in fact this is a huge advantage for cards which either cannot do scatter-gather or have very limited number of scatter-gather entries) and returns the actual number of sg entries it mapped them to. On failure 0 is returned.<br>
+<br>该实现可以自由地将几个连续的sglist条目合并为一个（例如，如果DMA映射是用PAGE_SIZE粒度完成的，则任何连续的sglist条目都可以合并为一个，前提是第一个结束并且第二个在页面边界开始- 实际上，这对于不能执行散点收集或散点收集条目数量非常有限并返回其映射到的sg条目的实际数量的卡来说，是一个巨大的优势。 失败时返回0。<br>
 
 <br>Then you should loop count times (note: this can be less than nents times) and use sg_dma_address() and sg_dma_len() macros where you previously accessed sg->address and sg->length as shown above.<br>
+<br>然后，您应该循环计数次数（注意：这可以少于nents次数），并使用sg_dma_address（）和sg_dma_len（）宏，您以前在其中访问过sg-> address和sg-> length，如上所示。
 
 <br>To unmap a scatterlist, just call::<br>
+<br>要取消散列表的映射，只需致电：: <br>
 ```c
 	dma_unmap_sg(dev, sglist, nents, direction);
 ```
 <br>Again, make sure DMA activity has already finished.<br>
+<br>同样，请确保DMA活动已经完成。<br>
 
 .. note:
 
 	The 'nents' argument to the dma_unmap_sg call must be the _same_ one you passed into the dma_map_sg call,
 	it should _NOT_ be the 'count' value _returned_ from the dma_map_sg call.
+	dma_unmap_sg调用的“ nents”参数必须是您传递给dma_map_sg调用的_same_，它应该_NOT_是dma_map_sg调用中的“计数”值_returned_。
 
 <br>Every dma_map_{single,sg}() call should have its dma_unmap_{single,sg}() counterpart, because the DMA address space is a shared resource and you could render the machine unusable by consuming all DMA addresses.<br>
+<br>每个dma_map_ {single，sg}（）调用都应有其dma_unmap_ {single，sg}（）对应物，因为DMA地址空间是共享资源，您可以通过使用所有DMA地址来使计算机不可用。<br >
 
 <br>If you need to use the same streaming DMA region multiple times and touch the data in between the DMA transfers, the buffer needs to be synced properly in order for the CPU and device to see the most up-to-date and correct copy of the DMA buffer.<br>
+<br>如果您需要多次使用相同的流DMA区域并触摸DMA传输之间的数据，则需要正确同步缓冲区，以便CPU和设备看到最新和正确的DMA缓冲区的副本的信息。<br>
 
 <br>So, firstly, just map it with dma_map_{single,sg}(), and after each DMA transfer call either::<br>
 ```c
@@ -442,6 +488,7 @@ or:
 <br>as appropriate.<br>
 
 <br>Then, if you wish to let the device get at the DMA area again, finish accessing the data with the CPU, and then before actually giving the buffer to the hardware call either::<br>
+<br>然后，如果您希望让设备再次进入DMA区域，请先使用CPU完成访问数据，然后再将缓冲区实际分配给硬件调用：
 ```c
 	dma_sync_single_for_device(dev, dma_handle, size, direction);
 ```
@@ -453,11 +500,15 @@ as appropriate.
 
 .. note::
 
-	The 'nents' argument to dma_sync_sg_for_cpu() and dma_sync_sg_for_device() must be the same passed to dma_map_sg(). It is _NOT_ the count returned by dma_map_sg().
+	The 'nents' argument to dma_sync_sg_for_cpu() and dma_sync_sg_for_device() must be the same passed to dma_map_sg().
+	It is _NOT_ the count returned by dma_map_sg().
+	dma_sync_sg_for_cpu（）和dma_sync_sg_for_device（）的“ nents”参数必须与传递给dma_map_sg（）的参数相同。不是dma_map_sg（）返回的计数。
 
 <br>After the last DMA transfer call one of the DMA unmap routines dma_unmap_{single,sg}(). If you don't touch the data from the first dma_map_*() call till dma_unmap_*(), then you don't have to call the dma_sync_*() routines at all.<br>
+<br>在最后一次DMA传输调用之后，其中一个DMA取消映射例程dma_unmap_ {single，sg}（）。 如果您不触摸第一个dma_map _ *（）调用中的数据，直到dma_unmap _ *（），则根本不必调用dma_sync _ *（）例程。<br>
 
 <br>Here is pseudo code which shows a situation in which you would need to use the dma_sync_*() interfaces::<br>
+<br>这是伪代码，它显示了您需要使用dma_sync _ *（）接口的情况：: <br>
 ```c
 	my_card_setup_receive_buffer(struct my_card *cp, char *buffer, int len)
 	{
@@ -520,18 +571,22 @@ as appropriate.
 	}
 ```
 <br>Drivers converted fully to this interface should not use virt_to_bus() any longer, nor should they use bus_to_virt(). Some drivers have to be changed a little bit, because there is no longer an equivalent to bus_to_virt() in the dynamic DMA mapping scheme - you have to always store the DMA addresses returned by the dma_alloc_coherent(), dma_pool_alloc(), and dma_map_single() calls (dma_map_sg() stores them in the scatterlist itself if the platform supports dynamic DMA mapping in hardware) in your driver structures and/or in the card registers.<br>
+<br>完全转换为该接口的驱动程序不应再使用virt_to_bus（），也不应使用bus_to_virt（）。 一些驱动程序必须稍作更改，因为动态DMA映射方案中不再有与bus_to_virt（）等效的驱动程序-您必须始终存储dma_alloc_coherent（），dma_pool_alloc（）和dma_map_single（）返回的DMA地址。 ）调用（如果平台支持硬件中的动态DMA映射，则dma_map_sg（）将它们存储在分散列表本身中）在驱动程序结构和/或卡寄存器中。<br>
 
 <br>All drivers should be using these interfaces with no exceptions.  It is planned to completely remove virt_to_bus() and bus_to_virt() as they are entirely deprecated.  Some ports already do not provide these as it is impossible to correctly support them.<br>
+<br>所有驱动程序都应使用这些接口，没有例外。 由于完全不建议使用virt_to_bus（）和bus_to_virt（），因此计划将其删除。 一些端口已经不提供这些功能，因为不可能正确地支持它们。<br>
 
-## Handling Errors
+## Handling Errors  错误处理
 ## ===============
 
 <br>DMA address space is limited on some architectures and an allocation failure can be determined by:<br>
+<br> DMA地址空间在某些体系结构上受到限制，分配失败可以通过以下方法确定：<br>
 
-- checking if dma_alloc_coherent() returns NULL or dma_map_sg returns 0
+- checking if dma_alloc_coherent() returns NULL or dma_map_sg returns 0 检查dma_alloc_coherent（）返回NULL还是dma_map_sg返回0
 
 - checking the dma_addr_t returned from dma_map_single() and dma_map_page()
-  by using dma_mapping_error()::
+  by using dma_mapping_error():: 检查从dma_map_single（）和dma_map_page（）返回的dma_addr_t
+   通过使用dma_mapping_error（）：：
 ```c
 	dma_addr_t dma_handle;
 
@@ -547,7 +602,7 @@ as appropriate.
 ```
 - unmap pages that are already mapped, when mapping error occurs in the middle
   of a multiple page mapping attempt. These example are applicable to
-  dma_map_page() as well.
+  dma_map_page() as well. 当中间出现映射错误时，取消映射已映射的页面多页映射尝试。 这些示例适用于 以及dma_map_page（）。
 ```c
 Example 1::
 
@@ -619,14 +674,18 @@ Example 2::
 	}
 ```
 <br>Networking drivers must call dev_kfree_skb() to free the socket buffer and return NETDEV_TX_OK if the DMA mapping fails on the transmit hook (ndo_start_xmit). This means that the socket buffer is just dropped in the failure case.<br>
+<br>网络驱动程序必须调用dev_kfree_skb（）来释放套接字缓冲区，如果DMA映射在传输挂钩（ndo_start_xmit）失败，则返回NETDEV_TX_OK。 这意味着在发生故障的情况下套接字缓冲区将被丢弃。<br>
 
 <br>SCSI drivers must return SCSI_MLQUEUE_HOST_BUSY if the DMA mapping fails in the queuecommand hook. This means that the SCSI subsystem passes the command to the driver again later.<br>
+<br>如果queuecommand挂接中的DMA映射失败，则SCSI驱动程序必须返回SCSI_MLQUEUE_HOST_BUSY。 这意味着SCSI子系统稍后将命令再次传递给驱动程序。<br>
 
-## Optimizing Unmap State Space Consumption
+## Optimizing Unmap State Space Consumption 优化未映射状态空间消耗
 ## ========================================
-On many platforms, dma_unmap_{single,page}() is simply a nop. Therefore, keeping track of the mapping address and length is a waste of space.  Instead of filling your drivers up with ifdefs and the like to "work around" this (which would defeat the whole purpose of a portable API) the following facilities are provided.<br>
+<br>On many platforms, dma_unmap_{single,page}() is simply a nop. Therefore, keeping track of the mapping address and length is a waste of space.  Instead of filling your drivers up with ifdefs and the like to "work around" this (which would defeat the whole purpose of a portable API) the following facilities are provided.<br>
+<br>在许多平台上，dma_unmap_ {single，page}（）只是nop。 因此，跟踪映射地址和长度是浪费空间。 提供了以下功能，而不是为驱动程序添加ifdefs之类的东西以“解决”此问题（这会破坏便携式API的全部目的）。<br>
 
 <br>Actually, instead of describing the macros one by one, we'll transform some example code.<br>
+<br>实际上，我们将不对宏进行逐一描述，而是将一些示例代码转换为<br>。
 
 1) Use DEFINE_DMA_UNMAP_{ADDR,LEN} in state saving structures.
 ```c
@@ -673,25 +732,31 @@ On many platforms, dma_unmap_{single,page}() is simply a nop. Therefore, keeping
 			 DMA_FROM_DEVICE);
 ```
 <br>It really should be self-explanatory.  We treat the ADDR and LEN separately, because it is possible for an implementation to only need the address in order to perform the unmap operation.<br>
+<br>这确实应该是不言自明的。 我们将ADDR和LEN分开对待，因为实现可能只需要地址即可执行取消映射操作。<br>
 
-## Platform Issues
+## Platform Issues 平台的问题
 ## ===============
 
 <br>If you are just writing drivers for Linux and do not maintain an architecture port for the kernel, you can safely skip down to "Closing".<br>
+<br>如果您只是为Linux编写驱动程序，并且不维护内核的体系结构端口，则可以安全地跳至“closing”。<br>
 
-1) Struct scatterlist requirements.
+1) Struct scatterlist requirements. 结构散列表的要求。
 
-   You need to enable CONFIG_NEED_SG_DMA_LENGTH if the architecture supports IOMMUs (including software IOMMU).
+   You need to enable CONFIG_NEED_SG_DMA_LENGTH if the architecture supports IOMMUs (including software IOMMU). <br>
+   <br>如果体系结构支持IOMMU（包括软件IOMMU），则需要启用CONFIG_NEED_SG_DMA_LENGTH。<br>
 
 2) ARCH_DMA_MINALIGN
 
-   Architectures must ensure that kmalloc'ed buffer is DMA-safe. Drivers and subsystems depend on it. If an architecture isn't fully DMA-coherent (i.e. hardware doesn't ensure that data in the CPU cache is identical to data in main memory), ARCH_DMA_MINALIGN must be set so that the memory allocator makes sure that kmalloc'ed buffer doesn't share a cache line with the others. See arch/arm/include/asm/cache.h as an example.
+   Architectures must ensure that kmalloc'ed buffer is DMA-safe. Drivers and subsystems depend on it. If an architecture isn't fully DMA-coherent (i.e. hardware doesn't ensure that data in the CPU cache is identical to data in main memory), ARCH_DMA_MINALIGN must be set so that the memory allocator makes sure that kmalloc'ed buffer doesn't share a cache line with the others. See arch/arm/include/asm/cache.h as an example.<br>
+   <br>架构必须确保kmalloc的缓冲区是DMA安全的。 驱动程序和子系统依赖于此。 如果架构不是完全与DMA一致的（即硬件不能确保CPU缓存中的数据与主内存中的数据相同），则必须设置ARCH_DMA_MINALIGN，以便内存分配器确保kmalloc的缓冲区不 与其他人共享一条缓存行。 请参阅arch/arm/include/asm/cache.h作为示例。<br>
 
-   Note that ARCH_DMA_MINALIGN is about DMA memory alignment constraints. You don't need to worry about the architecture data alignment constraints (e.g. the alignment constraints about 64-bit objects).
+   <br>Note that ARCH_DMA_MINALIGN is about DMA memory alignment constraints. You don't need to worry about the architecture data alignment constraints (e.g. the alignment constraints about 64-bit objects).<br>
+   <br>请注意，ARCH_DMA_MINALIGN与DMA内存对齐约束有关。 您无需担心架构数据对齐约束（例如，有关64位对象的对齐约束）。<br>
 
 ## Closing
 ## =======
-This document, and the API itself, would not be in its curren form without the feedback and suggestions from numerous individuals We would like to specifically mention, in no particular order, the following people::
+<br>This document, and the API itself, would not be in its curren form without the feedback and suggestions from numerous individuals We would like to specifically mention, in no particular order, the following people::<br>
+<br>如果没有众多个人的反馈和建议，本文档以及API本身就不会是目前的形式。我们要特别提及以下人员：<br>
 
 	Russell King <rmk@arm.linux.org.uk>
 	Leo Dagum <dagum@barrel.engr.sgi.com>
