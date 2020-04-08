@@ -1,8 +1,8 @@
 ==============
-DMA attributes
+DMA attributes 属性
 ==============
 
-This document describes the semantics of the DMA attributes that are
+This document describes the semantics（语义） of the DMA attributes that are
 defined in linux/dma-mapping.h.
 
 DMA_ATTR_WRITE_BARRIER
